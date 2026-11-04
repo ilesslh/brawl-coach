@@ -1,5 +1,5 @@
-// App shell cached for offline use; stats always try the network first. Bump VERSION on each release.
-const VERSION = 'brawl-coach-v1';
+﻿// App shell cached for offline use; stats always try the network first. Bump VERSION on each release.
+const VERSION = 'brawl-coach-v2';
 const SHELL = ['./', './index.html', './app.js', './style.css', './manifest.webmanifest', './icons/icon-192.png'];
 
 self.addEventListener('install', e => {

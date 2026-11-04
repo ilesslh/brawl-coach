@@ -5,5 +5,8 @@
   "extra_players_per_run": 600,
   "extra_players_seed": 3000,
   "window_days": 14,
+  "equip_profiles_per_run": 300,
+  "equip_profiles_seed": 2500,
+  "equip_recount_days": 30,
   "workers": 8
 }

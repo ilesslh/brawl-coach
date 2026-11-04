@@ -198,6 +198,8 @@ def collect(api, seed=False):
         log(f"top+suivis: {len(crawl)} joueurs, adversaires ajoutés: {len(extra)}")
         ingest(ex.map(fetch, extra))
 
+    collect_equipment(api, sorted(extra_pool), seed)
+
     total = 0
     for day, rows in new_rows.items():
         write_day(day, read_day(day) + rows)
@@ -232,6 +234,59 @@ def collect(api, seed=False):
 
     meta_src = {"brawlers": api.brawlers(), "rotation": api.rotation()}
     save_json(os.path.join(STORE, "api_meta.json"), meta_src)
+
+
+# ---------------------------------------------------------------- equipment
+def collect_equipment(api, pool, seed=False):
+    """Count what players choose to unlock: the only star power / gadget owned is their first pick,
+    gears owned among players who reached power 8 (gear unlock level)."""
+    path = os.path.join(STORE, "equip.json")
+    eq = load_json(path, {"counted": {}, "b": {}})
+    today = dt.datetime.now(dt.timezone.utc)
+    cutoff = (today - dt.timedelta(days=CONFIG["equip_recount_days"])).strftime("%Y%m%d")
+    eq["counted"] = {k: v for k, v in eq["counted"].items() if v >= cutoff}
+    h = lambda t: hashlib.sha1(t.encode()).hexdigest()[:12]  # noqa: E731
+    candidates = [t for t in pool if t and h(t) not in eq["counted"]]
+    n = CONFIG["equip_profiles_seed" if seed else "equip_profiles_per_run"]
+    sample = random.sample(candidates, min(n, len(candidates)))
+    with ThreadPoolExecutor(CONFIG["workers"]) as ex:
+        profiles = list(ex.map(api.player, sample))
+    used = 0
+    for tag, p in zip(sample, profiles):
+        if not p:
+            continue
+        used += 1
+        eq["counted"][h(tag)] = today.strftime("%Y%m%d")
+        for b in p.get("brawlers", []):
+            s = eq["b"].setdefault(str(b["id"]), {"n": 0, "n8": 0, "sp1": {}, "g1": {}, "gear": {}, "hc": 0})
+            s["n"] += 1
+            sps, gads = b.get("starPowers", []), b.get("gadgets", [])
+            if len(sps) == 1:
+                k = str(sps[0]["id"]); s["sp1"][k] = s["sp1"].get(k, 0) + 1
+            if len(gads) == 1:
+                k = str(gads[0]["id"]); s["g1"][k] = s["g1"].get(k, 0) + 1
+            if (b.get("power") or 0) >= 8:
+                s["n8"] += 1
+                for g in b.get("gears", []):
+                    k = g.get("name", "?")
+                    s["gear"][k] = s["gear"].get(k, 0) + 1
+            if b.get("hyperCharges"):
+                s["hc"] += 1
+    save_json(path, eq)
+    log(f"équipement: {used} profils analysés ({len(eq['counted'])} joueurs comptés sur {CONFIG['equip_recount_days']} j)")
+
+
+def aggregate_equipment():
+    eq = load_json(os.path.join(STORE, "equip.json"), {"b": {}})
+    out = {}
+    for bid, s in eq["b"].items():
+        def shares(d):
+            tot = sum(d.values())
+            return {"n": tot, "pick": sorted(([k, v / tot] for k, v in d.items()), key=lambda x: -x[1])} if tot else {"n": 0, "pick": []}
+        out[bid] = {"owners": s["n"], "n8": s["n8"], "sp": shares(s["sp1"]), "gadget": shares(s["g1"]),
+                    "gears": sorted(([k, v / s["n8"]] for k, v in s["gear"].items()), key=lambda x: -x[1]) if s["n8"] else []}
+    save_json(os.path.join(SITE_DATA, "equip.json"), out)
+    return len(out)
 
 
 # ---------------------------------------------------------------- aggregate
@@ -304,7 +359,8 @@ def aggregate():
         data = load_json(os.path.join(STORE, "players", f"{tag}.json"), None)
         if data:
             save_json(os.path.join(SITE_DATA, "players", f"{tag}.json"), data)
-    log(f"agrégat: classé {stats['r']['games']} parties, trophées {stats['t']['games']} parties, {len(brawlers)} brawlers")
+    n_eq = aggregate_equipment()
+    log(f"agrégat: classé {stats['r']['games']} parties, trophées {stats['t']['games']} parties, {len(brawlers)} brawlers, équipement pour {n_eq} brawlers")
 
 
 if __name__ == "__main__":

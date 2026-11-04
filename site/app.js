@@ -37,7 +37,7 @@ const smooth = (g, w, prior = 0.5, k = 20) => (w + k * prior) / (g + k);
 const MIN_MAP = 8, MIN_MU = 20, MIN_TIER = 150;
 
 /* ---------- data ---------- */
-const D = { meta: null, stats: null, players: {}, byId: {} };
+const D = { meta: null, stats: null, equip: null, players: {}, byId: {} };
 const S = {
   q: LS.get('q', 'r'), view: LS.get('view', 'maps'), search: '', sort: 'tier',
   draft: LS.get('draft', { map: null, allies: [], enemies: [], bans: [], owned: false }),
@@ -150,7 +150,7 @@ function viewBrawlers() {
   return html + '</div>';
 }
 
-function brawlerSheet(id) {
+function brawlerSheet(id, fam = S.fam || 'general') {
   const b = D.byId[id], v = Q().b[id] || [0, 0, 0], o = overall(id);
   const T = tiers()[id];
   const modes = Object.entries(Q().bm[id] || {}).filter(([, x]) => x[0] >= 10).map(([m, x]) => ({ m, g: x[0], s: smooth(x[0], x[1], o, 15) })).sort((a, b) => b.s - a.s);
@@ -172,11 +172,57 @@ function brawlerSheet(id) {
       <div class="card"><h3>Il les contre</h3><div class="muted small">Ses matchups les plus favorables.</div><div class="rows">${beats.map(x => muRow(x, 'face à lui')).join('') || '<div class="muted small">Pas assez de données.</div>'}</div></div>
     </div>
     <div class="card"><h3>Meilleurs coéquipiers</h3><div class="rows">${mates.map(x => muRow(x, 'ensemble')).join('') || '<div class="muted small">Pas assez de données.</div>'}</div></div>
-    <div class="card"><h3>Build</h3>
-      <div><div class="small muted">Gadgets</div><div class="chips">${(b?.gadgets || []).map(g => `<span class="chip">${esc(g.name)}${mine && !mine.gadgets.includes(g.id) ? ' <span class="muted">(pas débloqué)</span>' : ''}</span>`).join('') || '—'}</div></div>
-      <div><div class="small muted">Star powers</div><div class="chips">${(b?.starPowers || []).map(g => `<span class="chip">${esc(g.name)}${mine && !mine.starPowers.includes(g.id) ? ' <span class="muted">(pas débloqué)</span>' : ''}</span>`).join('') || '—'}</div></div>
-      <a class="ext" href="https://www.noff.gg/brawl-stars/brawler/${slug(b?.name || '')}" target="_blank" rel="noopener">Voir les builds recommandés sur Noff.gg ↗</a>
-    </div>`;
+    ${stuffCard(id, fam)}`;
+}
+
+/* ---------- recommended equipment ---------- */
+const FAMILIES = {
+  general: { label: 'Général', modes: [] },
+  control: { label: 'Contrôle', modes: ['gemGrab', 'hotZone'], why: 'il faut tenir la zone longtemps' },
+  ball: { label: 'Ball', modes: ['brawlBall', 'basketBrawl', 'brawlHockey', 'volleyBrawl', 'airHockey'], why: 'la vitesse et la survie font marquer' },
+  heist: { label: 'Braquage', modes: ['heist', 'siege', 'payload'], why: 'chaque point de dégâts sur le coffre compte' },
+  elim: { label: 'Élimination', modes: ['bounty', 'knockout', 'knockout5V5', 'wipeout', 'deathmatch', 'duels'], why: 'on gagne en éliminant sans mourir' },
+  showdown: { label: 'Survivant', modes: ['soloShowdown', 'duoShowdown', 'trioShowdown'], why: 'il faut durer et voir venir' }
+};
+const familyOf = mode => Object.keys(FAMILIES).find(k => FAMILIES[k].modes.includes(mode)) || 'general';
+/* How much each gear matters per situation; brawler-specific gears keep weight 1 */
+const GEAR_W = {
+  general: { DAMAGE: 1, SHIELD: 1, 'GADGET COOLDOWN': .8, HEALTH: .8, SPEED: .8, VISION: .7 },
+  control: { SHIELD: 1.25, DAMAGE: 1, 'GADGET COOLDOWN': 1, HEALTH: .9, SPEED: .6, VISION: .7 },
+  ball: { SPEED: 1.3, SHIELD: 1.15, DAMAGE: .9, HEALTH: .8, 'GADGET COOLDOWN': .7, VISION: .5 },
+  heist: { DAMAGE: 1.3, SPEED: 1.1, SHIELD: .85, HEALTH: .7, 'GADGET COOLDOWN': .7, VISION: .4 },
+  elim: { DAMAGE: 1.15, VISION: 1.1, SHIELD: 1, HEALTH: .8, 'GADGET COOLDOWN': .8, SPEED: .6 },
+  showdown: { HEALTH: 1.25, SHIELD: 1.1, VISION: 1.05, DAMAGE: .9, SPEED: .9, 'GADGET COOLDOWN': .7 }
+};
+const GEAR_FR = { DAMAGE: 'Dégâts', SHIELD: 'Bouclier', SPEED: 'Vitesse', VISION: 'Vision', HEALTH: 'Santé', 'GADGET COOLDOWN': 'Recharge gadget', 'SUPER CHARGE': 'Charge du super', 'RELOAD SPEED': 'Rechargement', 'PET POWER': 'Puissance du familier' };
+const GEAR_WHY = { DAMAGE: '+dégâts quand tu es sous 50 % de vie', SHIELD: 'bouclier qui se recharge hors combat', SPEED: 'plus rapide dans les buissons', VISION: 'révèle les ennemis touchés dans les buissons', HEALTH: 'soin plus rapide hors combat', 'GADGET COOLDOWN': 'gadget plus souvent disponible' };
+const gearName = g => GEAR_FR[g] || g.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+function stuffCard(id, fam) {
+  const b = D.byId[id], e = D.equip?.[id], mine = D.players[S.tag]?.profile?.brawlers.find(x => String(x.id) === id);
+  const noff = `<a class="ext" href="https://www.noff.gg/brawl-stars/brawler/${slug(b?.name || '')}" target="_blank" rel="noopener">Comparer avec les builds de Noff.gg ↗</a>`;
+  const tabs = `<div class="chips">${Object.entries(FAMILIES).map(([k, f]) => `<button class="chip" data-action="fam" data-id="${id}" data-k="${k}" aria-pressed="${k === fam}">${f.label}</button>`).join('')}</div>`;
+  if (!e || (!e.sp.n && !e.gadget.n && !e.gears.length)) return `<div class="card"><h3>Stuff recommandé</h3>${tabs}<div class="muted small">Pas encore assez de profils de joueurs pour ce brawler. Ça se remplit à chaque collecte.</div>${noff}</div>`;
+  const nameOf = (list, pid) => (list || []).find(x => String(x.id) === String(pid))?.name || '?';
+  const has = (kind, pid) => !mine ? null : (kind === 'sp' ? mine.starPowers : mine.gadgets).includes(Number(pid));
+  const choice = (kind, data, list) => {
+    if (!data.n) return '<div class="muted small">Pas assez de données.</div>';
+    const [first, second] = data.pick;
+    const close = second && first[1] - second[1] < 0.15;
+    const line = (p, best) => `<div class="row"><span class="mode-pill" style="${best ? 'background:var(--accent);color:var(--accent-ink)' : ''}">${best ? 'conseillé' : 'alternative'}</span>
+      <span style="min-width:0"><div class="name">${esc(nameOf(list, p[0]))}</div><div class="sub">premier choix de ${pct(p[1])} des joueurs${has(kind, p[0]) === false ? ' · <b>pas encore débloqué</b>' : has(kind, p[0]) ? ' · tu l’as' : ''}</div></span>
+      <span class="right"><div class="bar" style="width:70px"><i style="width:${p[1] * 100}%"></i></div></span></div>`;
+    return line(first, true) + (second ? line(second, false) : '') + (close ? '<div class="muted small">Les deux se valent : prends celui qui colle à ton style de jeu.</div>' : '');
+  };
+  const W = GEAR_W[fam];
+  const gears = e.gears.map(([g, r]) => ({ g, r, s: r * (W[g] ?? 1) })).sort((a, b) => b.s - a.s).slice(0, 3);
+  const famWhy = FAMILIES[fam].why;
+  return `<div class="card"><div class="section-head"><h3>Stuff recommandé</h3><span class="small muted">${num(e.owners)} profils analysés</span></div>${tabs}
+    <div><div class="small muted">Gadget</div><div class="rows">${choice('gadget', e.gadget, b?.gadgets)}</div></div>
+    <div><div class="small muted">Star power</div><div class="rows">${choice('sp', e.sp, b?.starPowers)}</div></div>
+    <div><div class="small muted">Gears ${fam === 'general' ? '' : '· ' + esc(FAMILIES[fam].label.toLowerCase()) + ' : ' + esc(famWhy)}</div><div class="rows">${gears.map((x, i) => `<div class="row"><span class="mode-pill" style="${i < 2 ? 'background:var(--accent);color:var(--accent-ink)' : ''}">${i < 2 ? 'slot ' + (i + 1) : 'option'}</span>
+      <span style="min-width:0"><div class="name">${esc(gearName(x.g))}</div><div class="sub">${esc(GEAR_WHY[x.g] || 'gear propre à ce brawler')} · acheté par ${pct(x.r)} des joueurs niveau 8+</div></span><span></span></div>`).join('') || '<div class="muted small">Pas assez de données.</div>'}</div></div>
+    <div class="muted small">Gadget et star power : ce que les joueurs débloquent en premier quand ils n’en ont qu’un. Gears : ceux qu’ils achètent, pondérés selon la situation. Le jeu ne donne pas l’équipement utilisé en partie.</div>
+    ${noff}</div>`;
 }
 
 /* ---------- draft ---------- */
@@ -317,8 +363,9 @@ document.addEventListener('click', e => {
   if (t.dataset.view && t.closest('#tabs')) { S.view = t.dataset.view; LS.set('view', S.view); render(); window.scrollTo(0, 0); return; }
   const a = t.dataset.action, id = t.dataset.id;
   switch (a) {
-    case 'map': openSheet(() => mapSheet(id)); break;
-    case 'brawler': openSheet(() => brawlerSheet(id)); break;
+    case 'map': S.fam = familyOf(eventOf(id).mode); openSheet(() => mapSheet(id)); break;
+    case 'brawler': { const f = t.closest('#sheet') ? S.fam : t.closest('#main') && S.view === 'draft' && S.draft.map ? familyOf(eventOf(S.draft.map).mode) : 'general'; S.fam = f; openSheet(() => brawlerSheet(id, f)); break; }
+    case 'fam': S.fam = t.dataset.k; { const top = $('#sheet').scrollTop; openSheet(() => brawlerSheet(id, S.fam)); $('#sheet').scrollTop = top; } break;
     case 'sort': S.sort = t.dataset.k; render(); break;
     case 'draft-map': S.draft.map = id; saveDraft(); closeSheet(); S.view = 'draft'; LS.set('view', 'draft'); render(); window.scrollTo(0, 0); break;
     case 'pick-map': openSheet(mapPickerSheet); break;
@@ -353,6 +400,7 @@ async function boot() {
     for (const b of meta.brawlers) D.byId[b.id] = b;
     if (!S.tag || !(meta.tracked || []).includes(S.tag)) S.tag = (meta.tracked || [])[0] || null;
     if (S.q === 'r' && meta.games.r < 500 && meta.games.t > meta.games.r) S.q = 't';
+    fetch('data/equip.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(x => { D.equip = x; }).catch(() => {});
     if (S.tag) loadPlayer(S.tag).then(render);
     render();
   } catch (e) {
