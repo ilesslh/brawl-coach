@@ -7,7 +7,11 @@ GH="/c/Program Files/GitHub CLI/gh.exe"
 REPO="ilesslh/brawl-coach"
 
 echo "1/5 Création du dépôt public $REPO"
-"$GH" repo create "$REPO" --public --description "Brawl Coach : stats Brawl Stars perso (win rates, counters, draft)"
+if "$GH" repo view "$REPO" >/dev/null 2>&1; then
+  echo "    déjà créé, on continue"
+else
+  "$GH" repo create "$REPO" --public --description "Brawl Coach : stats Brawl Stars perso (win rates, counters, draft)"
+fi
 git remote remove origin 2>/dev/null || true
 git remote add origin "https://github.com/$REPO.git"
 
@@ -24,7 +28,7 @@ echo "3/5 Ajout du token API dans les secrets du dépôt (lu depuis .env, jamais
 sed -n 's/^BS_API_TOKEN=//p' .env | tr -d '\r\n' | "$GH" secret set BS_API_TOKEN -R "$REPO"
 
 echo "4/5 Activation de GitHub Pages (déploiement par GitHub Actions)"
-"$GH" api -X POST "repos/$REPO/pages" -f build_type=workflow >/dev/null
+"$GH" api -X POST "repos/$REPO/pages" -f build_type=workflow >/dev/null 2>&1 || "$GH" api -X PUT "repos/$REPO/pages" -f build_type=workflow >/dev/null
 
 echo "5/5 Envoi du code (lance le premier déploiement)"
 git push -q -u origin main
