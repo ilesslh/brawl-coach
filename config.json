@@ -1,0 +1,9 @@
+{
+  "tracked": ["YC8YVPYR"],
+  "rankings": ["global", "FR"],
+  "ranking_limit": 200,
+  "extra_players_per_run": 600,
+  "extra_players_seed": 3000,
+  "window_days": 14,
+  "workers": 8
+}

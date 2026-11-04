@@ -1,0 +1,17 @@
+{
+  "name": "Brawl Coach",
+  "short_name": "Brawl Coach",
+  "description": "Win rates par map et mode, counters, draft et analyse de compte Brawl Stars.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14112B",
+  "theme_color": "#14112B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

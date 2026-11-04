@@ -1,0 +1,76 @@
+name: Collecte et déploiement
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # toutes les heures
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Collecte large (3000 adversaires)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["site/**", "collector/**", "config.json"]
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Récupérer les données (branche store)
+        run: |
+          if git ls-remote --exit-code --heads origin store; then
+            git fetch --depth=1 origin store
+            mkdir -p store
+            git --work-tree=store checkout origin/store -- .
+            git reset -q
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Collecter et agréger
+        env:
+          BS_API_TOKEN: ${{ secrets.BS_API_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            python collector/run.py --no-collect
+          else
+            python collector/run.py ${{ inputs.seed && '--seed' || '' }}
+          fi
+
+      - name: Sauvegarder les données (branche store, un seul commit)
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd store
+          git init -q -b store
+          git config user.name "brawl-coach-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "données $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" store
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
