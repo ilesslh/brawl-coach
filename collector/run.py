@@ -177,6 +177,8 @@ def collect(api, seed=False):
                 ev = it.get("event") or {}
                 if ev.get("id") and ev.get("map"):
                     events[str(ev["id"])] = {"mode": ev.get("mode") or (it.get("battle") or {}).get("mode"), "map": ev["map"]}
+                    if ev.get("modeId") is not None:
+                        events[str(ev["id"])]["mid"] = ev["modeId"]
                 for tm in (it.get("battle") or {}).get("teams") or []:
                     for p in tm:
                         extra_pool.add(clean_tag(p.get("tag")))
@@ -270,6 +272,8 @@ def collect_equipment(api, pool, seed=False):
                 for g in b.get("gears", []):
                     k = g.get("name", "?")
                     s["gear"][k] = s["gear"].get(k, 0) + 1
+                    if g.get("id"):
+                        eq.setdefault("gearIds", {})[k] = g["id"]
             if b.get("hyperCharges"):
                 s["hc"] += 1
     save_json(path, eq)
@@ -343,10 +347,15 @@ def aggregate():
     rotation = [{"id": r["event"]["id"], "mode": r["event"].get("mode"), "map": r["event"].get("map"),
                  "start": r.get("startTime"), "end": r.get("endTime")} for r in src.get("rotation", []) if r.get("event")]
     used = set(stats["r"]["ev"]) | set(stats["t"]["ev"]) | {str(r["id"]) for r in rotation}
+    # mode name -> numeric mode id, used by the app to build game mode icon URLs
+    modes = {e["mode"]: e["mid"] for e in events.values() if e.get("mode") and e.get("mid") is not None}
+    modes.update({r["event"]["mode"]: r["event"]["modeId"] for r in src.get("rotation", [])
+                  if (r.get("event") or {}).get("mode") and r["event"].get("modeId") is not None})
     meta = {
         "generated": now.strftime("%Y-%m-%dT%H:%M:%SZ"), "window_days": CONFIG["window_days"],
         "games": {q: stats[q]["games"] for q in stats},
-        "brawlers": brawlers, "rotation": rotation,
+        "brawlers": brawlers, "rotation": rotation, "modes": modes,
+        "gears": load_json(os.path.join(STORE, "equip.json"), {}).get("gearIds", {}),
         "tracked": [clean_tag(t) for t in CONFIG["tracked"]],
         "events": {e: events[e] for e in used if e in events},
     }

@@ -139,3 +139,61 @@ h3 { font-size: 17px; }
 .res { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .res.v { background: var(--good); } .res.d { background: var(--bad); } .res.n { background: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .sheet { animation: up .18s ease-out; } @keyframes up { from { transform: translateY(20px); opacity: .6; } } }
+
+/* icons: game modes, gadgets, star powers, gears (Brawlify CDN) */
+.mico { width: 16px; height: 16px; object-fit: contain; vertical-align: -3px; margin-right: 4px; flex: none; }
+.mico.lg { width: 30px; height: 30px; margin: 0; }
+.mico.xl { width: 52px; height: 52px; margin: 0; }
+.mapcard .thumb img.mico.badge, .mico.badge { position: absolute; left: 4px; bottom: 4px; width: 26px; height: 26px; margin: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.mode-pill { display: inline-flex; align-items: center; gap: 2px; }
+.mode-pill .mico { width: 14px; height: 14px; margin-right: 2px; }
+.row .sub .mico { width: 14px; height: 14px; }
+.mapcard .thumb { position: relative; }
+
+/* horizontal filter chips */
+.chips.hscroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+.chips.hscroll::-webkit-scrollbar { display: none; }
+.chip { flex: none; }
+.ichip { display: inline-flex; align-items: center; gap: 4px; padding-left: 8px; }
+.ichip .mico { width: 20px; height: 20px; margin: 0; }
+.seg.wide { display: grid; grid-template-columns: 1fr 1fr; }
+
+/* maps grouped by mode */
+.mode-group { display: grid; gap: 10px; }
+.mode-head { display: flex; align-items: center; gap: 10px; }
+.mode-head h2 { flex: 1; }
+
+/* tier list rows */
+.tierrow { display: grid; grid-template-columns: 64px 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.tierlabel { display: grid; align-content: center; justify-items: center; gap: 2px; color: #1A1300; padding: 8px 4px; text-align: center; }
+.tierlabel b { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1; }
+.tierlabel small { font-size: 10px; font-weight: 800; line-height: 1.1; }
+.tierlabel.S { background: #FF6B6B; } .tierlabel.A { background: #FFB547; } .tierlabel.B { background: #FFE066; } .tierlabel.C { background: #8BE38F; } .tierlabel.D { background: #7FB8FF; }
+.tiercells { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+.tcell { border: 0; background: none; padding: 0; display: grid; justify-items: center; gap: 2px; font-size: 12px; }
+.tier.inline { display: inline-grid; width: 18px; height: 18px; font-size: 11px; border-radius: 5px; margin-right: 6px; vertical-align: 1px; }
+
+/* sortable table */
+.card.table { gap: 0; padding: 6px 12px; }
+.trow { display: grid; grid-template-columns: 1fr 76px 92px; gap: 8px; align-items: center; padding: 7px 0; border: 0; border-bottom: 1px solid var(--line); background: none; width: 100%; text-align: left; }
+.trow:last-child { border-bottom: 0; }
+.trow.head { position: sticky; top: 0; }
+.th { border: 0; background: none; padding: 4px 0; font-size: 12px; font-weight: 800; color: var(--muted); text-align: left; }
+.th[aria-pressed="true"] { color: var(--accent); }
+.tb { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tb .rank { width: 20px; text-align: right; flex: none; }
+.tb .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk { display: grid; gap: 2px; }
+
+/* brawler sheet: modes and equipment tiles */
+.modegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.modecell { background: var(--surface-2); border-radius: 12px; padding: 10px 6px; display: grid; justify-items: center; gap: 2px; text-align: center; }
+.modecell b { font-family: var(--font-display); font-weight: 400; font-size: 18px; }
+.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-top: 6px; }
+.item { background: var(--surface-2); border: 2px solid transparent; border-radius: 14px; padding: 10px; display: grid; justify-items: center; gap: 3px; text-align: center; }
+.item.best { border-color: var(--accent); }
+.iico { width: 52px; height: 52px; object-fit: contain; }
+.iname { font-weight: 800; font-size: 13px; }
+.tag { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.tag.alt { background: var(--line); color: var(--fg); }
+details > summary { cursor: pointer; }
